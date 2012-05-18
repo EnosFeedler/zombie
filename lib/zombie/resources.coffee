@@ -264,6 +264,8 @@ class Resources extends Array
         when 302, 303
           # Follow redirect using GET (e.g. after form submission)
           redirect = URL.resolve(url, response.headers['location'])
+          delete headers['content-type']
+          delete headers['content-length']
           method = "GET" unless method == "GET" || method == "HEAD"
 
       if redirect
@@ -274,7 +276,6 @@ class Resources extends Array
           return
 
         # Set cookies for the redirect-to resource
-        cookies = browser.cookies(redirect.hostname, redirect.pathname)
         for cookie in jar.cookies
           cookies.update cookie.str
         # This URL is the referer, make a request to the next URL
