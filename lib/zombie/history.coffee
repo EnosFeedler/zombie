@@ -88,25 +88,6 @@ class History
     if @_browser.loadCSS
       jsdom_opts.features.FetchExternalResources.push "css"
 
-    # Create an empty document.  We do this here so the document is available
-    # before we start loading.  Some code waits for document to load
-    # (browser.visit) but some doesn't (set href, then bind onload).
-    document = JSDOM.jsdom(null, HTML, jsdom_opts)
-    if @_browser.runScripts
-      Scripts.addInlineScriptSupport document
-
-    # Associate window and document
-    @_window.document = document
-    document.window = document.parentWindow = @_window
-    # Set this to the same user agent that's loading this page
-    @_window.navigator.userAgent = @_browser.userAgent
-
-    # Fire onload event on window.
-    document.addEventListener "DOMContentLoaded", (event)=>
-      onload = document.createEvent("HTMLEvents")
-      onload.initEvent "load", false, false
-      @_browser.dispatchEvent @_window, onload
-
     # Let's handle the specifics of each protocol
     switch url.protocol
       when "about:"
@@ -136,6 +117,26 @@ class History
           url = URL.format(protocol: "file:", host: "", pathname: "/#{url.hostname}#{url.pathname}")
 
         @_browser.resources.request method, url, data, headers, (error, response)=>
+          
+          # make sure we are passing the _redirected_ url into jsdom enviornment
+          if not error then jsdom_opts.url = response.url
+          
+          document = JSDOM.jsdom(null, HTML, jsdom_opts)
+          if @_browser.runScripts
+          Scripts.addInlineScriptSupport document
+          
+          # Associate window and document
+          @_window.document = document
+          document.window = document.parentWindow = @_window
+          # Set this to the same user agent that's loading this page
+          @_window.navigator.userAgent = @_browser.userAgent
+          
+          # Fire onload event on window.
+          document.addEventListener "DOMContentLoaded", (event)=>
+          onload = document.createEvent("HTMLEvents")
+          onload.initEvent "load", false, false
+          @_browser.dispatchEvent @_window, onload
+
           if error
             document.open()
             document.write error.message
