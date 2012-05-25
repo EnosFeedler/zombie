@@ -176,6 +176,8 @@ class Windows
       @x = x
       @y = y
       @
+    window.webkitConvertPointFromNodeToPage = (node, point) -> point
+    window.webkitConvertPointFromPageToNode = (node, point) -> point
 
     # Constructor for EventSource, URL is relative to document's.
     window.EventSource = (url)->
