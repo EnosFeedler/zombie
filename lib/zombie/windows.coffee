@@ -171,6 +171,12 @@ class Windows
     window.btoa = (string)->
       new Buffer(string, "utf8").toString("base64")
 
+    # Add support for WebKitPoint
+    window.WebKitPoint = (x, y) ->
+      @x = x
+      @y = y
+      @
+
     # Constructor for EventSource, URL is relative to document's.
     window.EventSource = (url)->
       url = URL.resolve(window.location, url)
