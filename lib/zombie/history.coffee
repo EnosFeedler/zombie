@@ -123,7 +123,7 @@ class History
           
           document = JSDOM.jsdom(null, HTML, jsdom_opts)
           if @_browser.runScripts
-          Scripts.addInlineScriptSupport document
+            Scripts.addInlineScriptSupport document
           
           # Associate window and document
           @_window.document = document
