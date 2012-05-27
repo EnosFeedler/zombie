@@ -2,6 +2,56 @@ zombie.js-changelog(7) -- Changelog
 ===================================
 
 
+## Version 1.1.6 2012-05-26
+
+Fire `focus` and `blur` events when filling fields, selecting fields, pressing
+button and switching windows.
+
+Both `focus` and `blur` methods now work and you can get the `activeElement`.
+
+Tweak to in-line script processing to fix a problem no one reported.
+
+    513 tests
+    12.3 sec to complete
+
+
+## Version 1.1.5 2012-05-24
+
+The `wait` function (and its derivatives) now return most recent error in
+callback.
+
+To use promises and duration function, call `wait` with two arguments, second
+one being `null`.
+
+Workaround for the tricky `getElementById("foo").querySelector("#foo .bar")`
+behavior that JSDOM doesn't get quite right.
+
+    500 tests
+    12.3 sec to complete
+
+
+## Version 1.1.4 2012-05-22
+
+Make sure `wait` callback doesn't get the wrong `this`.
+
+    496 tests
+    11.5 sec to complete
+
+
+## Version 1.1.3 2012-05-22
+
+Fixed setting cookie on redirect to different domain.
+
+Fixed iframe doesn't retain value of src attribute.
+
+Fixed window.close property not set (Jerome Gravel-Niquet).
+
+Added documentation and tests for promises.
+
+    496 tests
+    11.9 sec to complete
+
+
 ## Version 1.1.2 2012-05-16
 
 Trim stack trace at call to `contextify.run`.  Also, if you upgrade, Contextify

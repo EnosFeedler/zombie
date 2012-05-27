@@ -66,7 +66,7 @@ class Windows
 
     # If this is a top window, it becomes the current browser window
     unless options.parent
-      @_current = window
+      @select window
     return window
 
   # Returns specific window by its name or position (e.g. "foo" returns the
@@ -90,21 +90,36 @@ class Windows
     index = @_stack.indexOf(window)
     return unless index >= 0
   
+    # Set window's closed property to true
+    window.closed = true
+
     delete @_named[window.name]
     @_stack.splice(index, 1)
     # If we closed the currently open window, switch to the previous window.
     if window == @_current
       if index > 0
-        @_current = @_stack[index - 1]
+        @select @_stack[index - 1]
       else
-        @_current = @_stack[0]
+        @select @_stack[0]
     return
 
   # Select specified window as the current window.
   select: (window)->
     window = @_named[window] || @_stack[window] || window
     return unless ~@_stack.indexOf(window)
-    @_current = window
+    [previous, @_current] = [@_current, window]
+    unless previous == window
+      # Fire onfocus and onblur event
+      onfocus = window.document.createEvent("HTMLEvents")
+      onfocus.initEvent "focus", false, false
+      process.nextTick ->
+        window.dispatchEvent onfocus
+      if previous
+        onblur = window.document.createEvent("HTMLEvents")
+        onblur.initEvent "blur", false, false
+        process.nextTick ->
+          previous.dispatchEvent onblur
+    return
 
   # Returns the currently open window.
   @prototype.__defineGetter__ "current", ->
@@ -141,6 +156,9 @@ class Windows
         return @document.title
       set: (title)->
         @document.title = title
+
+    # window`s have a closed property defaulting to false
+    window.closed = false
 
     # javaEnabled, present in browsers, not in spec Used by Google Analytics see
     # https://developer.mozilla.org/en/DOM/window.navigator.javaEnabled
@@ -210,6 +228,20 @@ class Windows
       event.origin = URL.format(protocol: origin.protocol, host: origin.host)
       process.nextTick ->
         eventloop.dispatch window, event
+
+    # -- Focusing --
+    
+    # If window goes in/out of focus, notify focused input field
+    window.addEventListener "focus", (event)->
+      if window.document.activeElement
+        onfocus = window.document.createEvent("HTMLEvents")
+        onfocus.initEvent "focus", false, false
+        window.document.activeElement.dispatchEvent onfocus
+    window.addEventListener "blur", (event)->
+      if window.document.activeElement
+        onblur = window.document.createEvent("HTMLEvents")
+        onblur.initEvent "blur", false, false
+        window.document.activeElement.dispatchEvent onblur
 
     # -- JavaScript evaluation 
 

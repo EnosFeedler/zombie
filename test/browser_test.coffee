@@ -424,6 +424,9 @@ describe "Browser", ->
       it "should set window name", ->
         assert.equal window.name, "popup"
 
+      it "should set window closed to false", ->
+        assert.equal window.closed, false
+
       it "should load page", ->
         assert.equal window.document.querySelector("h1").textContent, "Popup window"
 
@@ -471,13 +474,18 @@ describe "Browser", ->
 
 
       describe "and close it", ->
+        closed_window = null
         before ->
+          closed_window = browser.window
           browser.window.close()
 
         it "should lose that window", ->
           assert.equal browser.windows.all().length, 1
           assert.equal browser.windows.get(0).name, "nodejs"
           assert !browser.windows.get(1)
+
+        it "should set the `closed` property to `true`", ->
+          assert.equal closed_window.closed, true
 
         it "should switch to last window", ->
           assert.equal browser.window, browser.windows.get(0)
@@ -547,28 +555,4 @@ describe "Browser", ->
       assert.equal "http://localhost:3003/browser/dead", forked.location.href
       forked.window.history.back()
       assert.equal "http://localhost:3003/browser/living", forked.location.href
-
-
-  describe "promises", ->
-    before (done)->
-      brains.get "/promises", (req, res)->
-        res.send """
-        <h1>Deferred zombies<h1>
-        <a href="/promises/chained">Hit me</a>
-        """
-      brains.get "/promises/chained", (req, res)->
-        res.send """
-        <h1>Ouch<h1>
-        """
-      brains.ready done
-
-    before (done)->
-      browser = new Browser()
-      browser.visit("http://localhost:3003/promises")
-        .then ->
-          return browser.clickLink("Hit me")
-        .then done
-
-    it "should allow chaining instead of nesting", ->
-      assert true
 

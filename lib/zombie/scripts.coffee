@@ -6,10 +6,11 @@ HTML  = require("jsdom").dom.level3.html
 
 # If you're using CoffeeScript, you get client-side support.
 try
-  CoffeeScript  = require("coffee-script")
+  CoffeeScript = require("coffee-script")
   HTML.languageProcessors.coffeescript = (element, code, filename)->
     @javascript(element, CoffeeScript.compile(code), filename)
 catch ex
+  # Oh, well
 
 
 # If JSDOM encounters a JS error, it fires on the element.  We expect it to be
@@ -43,18 +44,18 @@ addInlineScriptSupport = (document)->
   # listens on the script element itself, and someone the event it captures
   # doesn't have any of the script contents.
   document.addEventListener "DOMNodeInserted", (event)->
-    # Get the script tag from the event itself
-    node = event.relatedNode
+    node = event.target # Node being inserted
     return unless node.tagName == "SCRIPT"
-    # Don't handle scripts with src URL, JSDOM takes care of these
-    return if node.src
-    code = node.text
-    return unless code
-    # Only process supported languages
-    language = HTML.languageProcessors[node.language]
-    return unless language
-    # Queue so inline scripts execute in order with external scripts
-    HTML.resourceLoader.enqueue(node, -> language(this, code, document.location.href))()
+    # Process scripts in order.
+    HTML.resourceLoader.enqueue(node, ->
+      code = node.text
+      # Only process supported languages
+      language = HTML.languageProcessors[node.language]
+      if code && language
+        # Queue so inline scripts execute in order with external scripts
+        language(this, code, document.location.href)
+    )()
+    return
 
 
 # -- Utility methods --
@@ -86,6 +87,7 @@ raise = ({ element, location, from, scope, error })->
   event.message = error.message
   event.error = error
   window.browser.dispatchEvent window, event
+  return
 
 
 module.exports = { raise, addInlineScriptSupport }

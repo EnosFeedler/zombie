@@ -55,9 +55,6 @@ class Browser extends EventEmitter
       @errors.push error
       @log error.message, error.stack
 
-    # Pretty reasonable if you have a lot of waiting calls in there (say fill, choose, clickLink)
-    @setMaxListeners 20
-
 
     # Default (not global) options
 
@@ -182,24 +179,25 @@ class Browser extends EventEmitter
   # Without duration, Zombie makes best judgement by waiting up to 5 seconds for the page to load resources (scripts,
   # XHR requests, iframes), process DOM events, and fire timeouts events.
   wait: (duration, callback)->
-    if !callback && typeof duration == "function"
+    if arguments.length < 2 && typeof duration == "function"
       [callback, duration] = [duration, null]
-
+ 
     deferred = Q.defer()
     promise = deferred.promise
-    if callback
-      promise.then ->
-        # This serves two purposes, one is yielding, the other is propagating
-        # any error thrown from the callback (then/fail swallow errors).
-        process.nextTick callback
-      .fail (error)->
-        process.nextTick ->
+
+    last = @errors[@errors.length - 1]
+    @_eventloop.wait @window, duration, (error)=>
+      newest = @errors[@errors.length - 1]
+      unless error || last == newest
+        error = newest
+      if error
+        deferred.reject(error)
+        if callback
           callback(error)
-
-    @once "done", deferred.resolve
-    @once "error", deferred.reject
-
-    @_eventloop.wait @window, duration
+      else
+        deferred.resolve()
+        if callback
+          callback(error)
     return promise unless callback
 
   # Fire a DOM event.  You can use this to simulate a DOM event, e.g. clicking a link.  These events will bubble up and
@@ -228,18 +226,19 @@ class Browser extends EventEmitter
   # Evaluates the CSS selector against the document (or context node) and return array of nodes.
   # (Unlike `document.querySelectorAll` that returns a node list).
   queryAll: (selector, context)->
-    context ||= @document.documentElement
     if selector
+      context ||= @document
       ret = context.querySelectorAll(selector)
       return Array.prototype.slice.call(ret, 0)
     else
+      context ||= @document.documentElement
       return [context]
 
   # ### browser.query(selector, context?) => Element
   #
   # Evaluates the CSS selector against the document (or context node) and return an element.
   query: (selector, context)->
-    context ||= @document.documentElement
+    context ||= @document
     if selector
       context.querySelector(selector)
     else
@@ -522,6 +521,7 @@ class Browser extends EventEmitter
       throw new Error("This INPUT field is disabled")
     if field.getAttribute("readonly")
       throw new Error("This INPUT field is readonly")
+    field.focus()
     field.value = value
     @fire "change", field, callback
     return this
@@ -590,27 +590,6 @@ class Browser extends EventEmitter
         return option
     throw new Error("No OPTION '#{value}'")
 
-  # ### browser.attach(selector, filename, callback) => this
-  #
-  # Attaches a file to the specified input field.  The second argument is the file name.
-  #
-  # Without callback, returns this.
-  attach: (selector, filename, callback)->
-    field = @field(selector)
-    unless field && field.tagName == "INPUT" && field.type == "file"
-      throw new Error("No file INPUT matching '#{selector}'")
-    if filename
-      stat = FS.statSync(filename)
-      file = new (@window.File)()
-      file.name = Path.basename(filename)
-      file.type = Mime.lookup(filename)
-      file.size = stat.size
-      field.files ||= []
-      field.files.push file
-      field.value = filename
-    @fire "change", field, callback
-    return this
-
   # ### browser.select(selector, value, callback) => this
   #
   # Selects an option.
@@ -634,6 +613,7 @@ class Browser extends EventEmitter
     if option && !option.getAttribute("selected")
       select = @xpath("./ancestor::select", option).value[0]
       option.setAttribute("selected", "selected")
+      select.focus()
       @fire "change", select, callback
     else if callback
       process.nextTick ->
@@ -665,10 +645,33 @@ class Browser extends EventEmitter
       unless select.multiple
         throw new Error("Cannot unselect in single select")
       option.removeAttribute("selected")
+      select.focus()
       @fire "change", select, callback
     else if callback
       process.nextTick ->
         callback null, false
+    return this
+
+  # ### browser.attach(selector, filename, callback) => this
+  #
+  # Attaches a file to the specified input field.  The second argument is the file name.
+  #
+  # Without callback, returns this.
+  attach: (selector, filename, callback)->
+    field = @field(selector)
+    unless field && field.tagName == "INPUT" && field.type == "file"
+      throw new Error("No file INPUT matching '#{selector}'")
+    if filename
+      stat = FS.statSync(filename)
+      file = new (@window.File)()
+      file.name = Path.basename(filename)
+      file.type = Mime.lookup(filename)
+      file.size = stat.size
+      field.files ||= []
+      field.files.push file
+      field.value = filename
+    field.focus()
+    @fire "change", field, callback
     return this
 
   # ### browser.button(selector) : Element
@@ -700,7 +703,14 @@ class Browser extends EventEmitter
       throw new Error("No BUTTON '#{selector}'")
     if button.getAttribute("disabled")
       throw new Error("This button is disabled")
+    button.focus()
     return @fire("click", button, callback)
+
+  # ### browser.focused => element
+  #
+  # Returns the element in focus.
+  focused: ->
+    return @window._focused
 
 
   # Cookies and storage
